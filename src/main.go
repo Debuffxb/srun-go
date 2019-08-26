@@ -13,12 +13,13 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 )
+
 var user string
 var password string
-
 func main(){
 	err := handleText(filepath.Dir(os.Args[0]) + "/user.txt")
 	if err != nil {
@@ -27,6 +28,10 @@ func main(){
 	debuff("logout")
 	time.Sleep(1000)
 	debuff("login")
+	if "windows" == runtime.GOOS{
+		fmt.Println("请手动关闭窗口")
+		select{}
+	}
 }
 
 func debuff(action string){
@@ -66,7 +71,6 @@ func debuff(action string){
 		url:=fmt.Sprintf("http://10.152.250.2/cgi-bin/srun_portal?callback=jsonp%v&username=%s&info=%s&chksum=%s&action=%s&ip=%s&password=%s&type=1&ac_id=1&n=200", time.Now().UnixNano()/1000000,user,info,chksum_str, action, ip,hmd5)
 		if action=="logout"{
 			url=fmt.Sprintf("http://10.152.250.2/cgi-bin/srun_portal?callback=jsonp%v&username=%s&info=%s&chksum=%s&action=%s&ip=%s&type=1&ac_id=1&n=200", time.Now().UnixNano()/1000000,user,info,chksum_str, action, ip)
-			fmt.Println(xEncodeStr)
 		}
 		url=strings.Replace(url,"+","%2B",-1)
 		url=strings.Replace(url,"@","%40",-1)
