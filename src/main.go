@@ -12,6 +12,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -19,37 +20,54 @@ var user string
 var password string
 
 func main(){
+	err := handleText(filepath.Dir(os.Args[0]) + "/user.txt")
+	if err != nil {
+		panic(err)
+	}
 	debuff("logout")
+	time.Sleep(1000)
 	debuff("login")
 }
 
 func debuff(action string){
 	client := &http.Client{}
-	err := handleText("user.txt")
-	if err != nil {
-		panic(err)
-	}
 	TimeStamp:=fmt.Sprintf("%v",time.Now().Unix())
-	request, _ := http.NewRequest("GET", "http://10.152.250.2/cgi-bin/get_challenge?callback=jsonp" + TimeStamp + "000&username=" + strings.Replace(user,"@","%40",-1), nil)
+	request, err := http.NewRequest("GET", "http://10.152.250.2/cgi-bin/get_challenge?callback=jsonp" + TimeStamp + "000&username=" + strings.Replace(user,"@","%40",-1), nil)
+	if err!=nil{
+		fmt.Println()
+		fmt.Println("---------------------------------")
+		fmt.Println(err)
+		fmt.Println("---------------------------------")
+		fmt.Println(action, "Failed")
+	}
 	response, _ := client.Do(request)
 	if response.StatusCode ==200 {
 		body, _ := ioutil.ReadAll(response.Body)
 		strs := string(body)
 		if strings.Index(strs, "\"error\":\"ok\"") == -1 {
-			fmt.Println("Failed")
+
 			fmt.Println("---------------------------------")
 			fmt.Println(strs)
-			panic(0)
+			fmt.Println("---------------------------------")
+			fmt.Println("Failed")
 		}
 		token := strings.Split(strings.Split(strs, "lenge\":\"")[1], "\",\"cli")[0]
 		ip := strings.Split(strings.Split(strs, "_ip\":\"")[1], "\",\"ecode")[0]
 		xEncodeStr := "{\"username\":\"" + user + "\",\"ip\":\"" + ip + "\",\"password\":\"" + password + "\",\"acid\":\"1\",\"enc_ver\":\"srun_bx1\"}"
+		//if action=="logout"{
+		//	xEncodeStr = "{\"username\":\"" + user + "\",\"ip\":\"" + ip + "\",\"acid\":\"1\",\"enc_ver\":\"srun_bx1\"}"
+		//	fmt.Println(xEncodeStr)
+		//}
 		info := encode(xEncodeStr, token)
 		hmd5 := encodeMD5("", token)
 		chksum_str:=chksum(strings.Join([]string{user, hmd5[5:], "1", ip, "200", "1", info}, token), token)
 		info=strings.Replace(info,"=","%3D",-1)
 		info=strings.Replace(info,"/","%2F",-1)
 		url:=fmt.Sprintf("http://10.152.250.2/cgi-bin/srun_portal?callback=jsonp%v&username=%s&info=%s&chksum=%s&action=%s&ip=%s&password=%s&type=1&ac_id=1&n=200", time.Now().UnixNano()/1000000,user,info,chksum_str, action, ip,hmd5)
+		if action=="logout"{
+			url=fmt.Sprintf("http://10.152.250.2/cgi-bin/srun_portal?callback=jsonp%v&username=%s&info=%s&chksum=%s&action=%s&ip=%s&type=1&ac_id=1&n=200", time.Now().UnixNano()/1000000,user,info,chksum_str, action, ip)
+			fmt.Println(xEncodeStr)
+		}
 		url=strings.Replace(url,"+","%2B",-1)
 		url=strings.Replace(url,"@","%40",-1)
 		url=strings.Replace(url,"{","%7B",-1)
@@ -63,17 +81,17 @@ func debuff(action string){
 			body, _ := ioutil.ReadAll(response.Body)
 			strs = string(body)
 			if strings.Index(strs, "\"error\":\"ok\"") == -1 {
-				fmt.Println(action, "Failed")
+				fmt.Println()
 				fmt.Println("---------------------------------")
 				fmt.Println(strs)
 				fmt.Println("---------------------------------")
-				panic(0)
+				fmt.Println(action, "Failed")
 			}else{
 				fmt.Println()
-				fmt.Println(action, "finished!")
 				fmt.Println("---------------------------------")
 				fmt.Println("IP地址:", ip)
 				fmt.Println("---------------------------------")
+				fmt.Println(action, "finished!")
 			}
 		}
 	}
