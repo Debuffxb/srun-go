@@ -35,70 +35,53 @@ func main(){
 }
 
 func debuff(action string){
-	client := &http.Client{}
 	TimeStamp:=fmt.Sprintf("%v",time.Now().Unix())
-	request, err := http.NewRequest("GET", "http://10.152.250.2/cgi-bin/get_challenge?callback=jsonp" + TimeStamp + "000&username=" + strings.Replace(user,"@","%40",-1), nil)
+	url := "http://10.152.250.2/cgi-bin/get_challenge?callback=jsonp" + TimeStamp + "000&username=" + strings.Replace(user,"@","%40",-1)
+	res := req(url)
+	if strings.Index(res, "\"error\":\"ok\"") == -1 {
+		PrintRes(res, action, "failed")
+	}else{
+		token := strings.Split(strings.Split(res, "lenge\":\"")[1], "\",\"cli")[0]
+		ip := strings.Split(strings.Split(res, "_ip\":\"")[1], "\",\"ecode")[0]
+		xEncodeStr := "{\"username\":\"" + user + "\",\"ip\":\"" + ip + "\",\"password\":\"" + password + "\",\"acid\":\"1\",\"enc_ver\":\"srun_bx1\"}"
+		info := encode(xEncodeStr, token)
+		hmd5 := encodeMD5("", token)
+		ChkSumStr:=chksum(strings.Join([]string{user, hmd5[5:], "1", ip, "200", "1", info}, token), token)
+		info=strings.Replace(strings.Replace(info,"=","%3D",-1),"/","%2F",-1)
+		url:=fmt.Sprintf("http://10.152.250.2/cgi-bin/srun_portal?callback=jsonp%v&username=%s&info=%s&chksum=%s&action=%s&ip=%s&password=%s&type=1&ac_id=1&n=200", time.Now().UnixNano()/1000000,user,info,ChkSumStr, action, ip,hmd5)
+		if action=="logout"{
+			url=fmt.Sprintf("http://10.152.250.2/cgi-bin/srun_portal?callback=jsonp%v&username=%s&info=%s&chksum=%s&action=%s&ip=%s&type=1&ac_id=1&n=200", time.Now().UnixNano()/1000000,user,info,ChkSumStr, action, ip)
+		}
+		url=strings.Replace(strings.Replace(strings.Replace(strings.Replace(url,"+","%2B",-1),"@","%40",-1),"{","%7B",-1),"}","%7D",-1)
+		res = req(url)
+		if strings.Index(res, "\"error\":\"ok\"") == -1 {
+			PrintRes(res, action, "failed")
+		}else{
+			PrintRes("IP: " + ip, action, "success")
+		}
+	}
+}
+
+func PrintRes(res string, action string, status string){
+	fmt.Println()
+	fmt.Println("---------------------------------")
+	fmt.Println(res)
+	fmt.Println("---------------------------------")
+	fmt.Println(action, status)
+}
+func req(url string) string {
+	client := &http.Client{}
+	request, err := http.NewRequest("GET", url, nil)
 	if err!=nil{
-		fmt.Println()
-		fmt.Println("---------------------------------")
-		fmt.Println(err)
-		fmt.Println("---------------------------------")
-		fmt.Println(action, "Failed")
+		return err.Error()
 	}
 	response, _ := client.Do(request)
 	if response.StatusCode ==200 {
 		body, _ := ioutil.ReadAll(response.Body)
 		strs := string(body)
-		if strings.Index(strs, "\"error\":\"ok\"") == -1 {
-
-			fmt.Println("---------------------------------")
-			fmt.Println(strs)
-			fmt.Println("---------------------------------")
-			fmt.Println("Failed")
-		}
-		token := strings.Split(strings.Split(strs, "lenge\":\"")[1], "\",\"cli")[0]
-		ip := strings.Split(strings.Split(strs, "_ip\":\"")[1], "\",\"ecode")[0]
-		xEncodeStr := "{\"username\":\"" + user + "\",\"ip\":\"" + ip + "\",\"password\":\"" + password + "\",\"acid\":\"1\",\"enc_ver\":\"srun_bx1\"}"
-		//if action=="logout"{
-		//	xEncodeStr = "{\"username\":\"" + user + "\",\"ip\":\"" + ip + "\",\"acid\":\"1\",\"enc_ver\":\"srun_bx1\"}"
-		//	fmt.Println(xEncodeStr)
-		//}
-		info := encode(xEncodeStr, token)
-		hmd5 := encodeMD5("", token)
-		chksum_str:=chksum(strings.Join([]string{user, hmd5[5:], "1", ip, "200", "1", info}, token), token)
-		info=strings.Replace(info,"=","%3D",-1)
-		info=strings.Replace(info,"/","%2F",-1)
-		url:=fmt.Sprintf("http://10.152.250.2/cgi-bin/srun_portal?callback=jsonp%v&username=%s&info=%s&chksum=%s&action=%s&ip=%s&password=%s&type=1&ac_id=1&n=200", time.Now().UnixNano()/1000000,user,info,chksum_str, action, ip,hmd5)
-		if action=="logout"{
-			url=fmt.Sprintf("http://10.152.250.2/cgi-bin/srun_portal?callback=jsonp%v&username=%s&info=%s&chksum=%s&action=%s&ip=%s&type=1&ac_id=1&n=200", time.Now().UnixNano()/1000000,user,info,chksum_str, action, ip)
-		}
-		url=strings.Replace(url,"+","%2B",-1)
-		url=strings.Replace(url,"@","%40",-1)
-		url=strings.Replace(url,"{","%7B",-1)
-		url=strings.Replace(url,"}","%7D",-1)
-		request, _ = http.NewRequest("GET", url, nil)
-		request.Header.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36")
-		request.Header.Add("Accept-Encoding","identity")
-		request.Header.Add("Host","10.152.20.2")
-		response, _ = client.Do(request)
-		if response.StatusCode == 200 {
-			body, _ := ioutil.ReadAll(response.Body)
-			strs = string(body)
-			if strings.Index(strs, "\"error\":\"ok\"") == -1 {
-				fmt.Println()
-				fmt.Println("---------------------------------")
-				fmt.Println(strs)
-				fmt.Println("---------------------------------")
-				fmt.Println(action, "Failed")
-			}else{
-				fmt.Println()
-				fmt.Println("---------------------------------")
-				fmt.Println("IP地址:", ip)
-				fmt.Println("---------------------------------")
-				fmt.Println(action, "finished!")
-			}
-		}
+		return strs
 	}
+	return "failed"
 }
 func s(a string, b bool) []int {
 	c:=len(a)
