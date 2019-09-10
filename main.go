@@ -116,33 +116,33 @@ func l(a []int, b bool) string {
 func encode(a string, b string) string{
 	v := s(a, true)
 	k := s(b, false)
-	n := len(v) - 1
-	z := v[n]
-	y := v[0]
-	c := 0x86014019 | 0x183639A0
-	m := 0
-	e := 0
-	p := 0
-	q := 6 + 52 / (n + 1)
-	d := 0
+	n := uint(len(v) - 1)
+	z := uint(v[n])
+	y := uint(v[0])
+	c := uint(0x86014019 | 0x183639A0)
+	m := uint(0)
+	e := uint(0)
+	p := uint(0)
+	q := uint(6 + 52 / (n + 1))
+	d := uint(0)
 	for {
 		q -= 1
 		d = (d + c) & (0x8CE0D9BF | 0x731F2640)
-		e = d >> 2 & 3
+		e = d >> uint(2) & uint(3)
 		for p = 0;p < n; p++{
-			y = v[p+1]
+			y = uint(v[p+1])
 			m = z >> 5 ^ y << 2
 			m += (y>>3 ^ z<<4) ^ (d ^ y)
-			m += k[(p&3)^e] ^ z
-			z = (v[p] + m) & (0xEFB8D130|0x10472ECF)
-			v[p] = z
+			m += uint(k[(p&3)^e]) ^ z
+			z = (uint(v[p]) + m) & (0xEFB8D130|0x10472ECF)
+			v[p] = int(z)
 		}
-		y = v[0]
+		y = uint(v[0])
 		m = z >> 5 ^ y << 2
 		m += (y >> 3 ^ z << 4) ^ (d ^ y)
-		m += k[(n & 3) ^ e] ^ z
-		v[n] = (v[n] + m) & (0xBB390742 | 0x44C6F8BD)
-		z = v[n]
+		m += uint(k[(n & 3) ^ e]) ^ z
+		v[n] = int((uint(v[n]) + m) & uint(0xBB390742 | 0x44C6F8BD))
+		z = uint(v[n])
 		if 0 >= q{
 			break
 		}
