@@ -10,28 +10,78 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
-	"runtime"
+	"strconv"
 	"strings"
 	"time"
 )
 
-var user string
-var password string
+var user 				string
+var password 			string
+var token 				string
+var chatID 				string
+var interval 			int
+var count 				int
+var disconnectedTime 	string
+var reconnectedTime 	string
+var sent				bool
+
+
 func main(){
 	err := handleText(filepath.Dir(os.Args[0]) + "/user.txt")
 	if err != nil {
 		panic(err)
 	}
-	debuff("logout")
-	time.Sleep(1000)
-	debuff("login")
-	if "windows" == runtime.GOOS{
-		fmt.Println("请手动关闭窗口")
-		select{}
+	sent = true
+	for true{
+		chk()
+		if count > 2{
+			debuff("logout")
+			debuff("login")
+		}
+		if count > 10{
+			time.Sleep(time.Duration(interval * 1e10))
+		} else {
+			time.Sleep(time.Duration(interval * 1e9))
+		}
 	}
+}
+
+func chk() bool{
+	conn, err := net.DialTimeout("tcp", "www.baidu.com:443", 2e9)
+	if err != nil{
+		if count == 0 {
+			disconnectedTime = (time.Now().String())[0:19]
+		}
+		fmt.Println((time.Now().String())[0: 19] + "  offline!")
+		count++
+		if count > 2 {
+			sent = false
+		}
+		return false
+	}
+	if !sent {
+		message := url.Values{}
+		message.Add("text", "重新连接")
+		message.Add("desp", "Network Reconnected\nNetwork Disconnected: " + disconnectedTime + "\nNetwork Reconnected: " + (time.Now().String())[0: 19])
+		res := post("https://iyuu.cn/" + token + ".send", message)
+		
+		if strings.Index(res, "ok") != -1 {
+			sent = true
+			reconnectedTime = ""
+		}
+	}
+	if reconnectedTime == "" {
+		reconnectedTime = (time.Now().String())[0: 19]
+	}
+	count = 0
+	fmt.Println((time.Now().String())[0: 19] + "  ok!")
+	_ = conn.Close()
+	return true
 }
 
 func debuff(action string){
@@ -69,17 +119,46 @@ func PrintRes(res string, action string, status string){
 	fmt.Println("---------------------------------")
 	fmt.Println(action, status)
 }
+
+func post(url string, message url.Values) string {
+	client := &http.Client{
+		Timeout: 1e9,
+	}
+	request, err := http.NewRequest("POST", url, strings.NewReader(message.Encode()))
+	if err!=nil{
+		return err.Error()
+	}
+	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.125 Safari/537.36")
+	response, err := client.Do(request)
+	if err != nil {
+		return err.Error()
+	}
+	if response.StatusCode == 200 {
+		body, _ := ioutil.ReadAll(response.Body)
+		str := string(body)
+		return str
+	}
+	return "failed"
+}
+
 func req(url string) string {
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 1 * 1e9,
+	}
 	request, err := http.NewRequest("GET", url, nil)
 	if err!=nil{
 		return err.Error()
 	}
-	response, _ := client.Do(request)
-	if response.StatusCode ==200 {
+	request.Header.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/84.0.4147.125 Safari/537.36")
+	response, err := client.Do(request)
+	if err != nil {
+		return err.Error()
+	}
+	if response.StatusCode == 200 {
 		body, _ := ioutil.ReadAll(response.Body)
-		strs := string(body)
-		return strs
+		str := string(body)
+		return str
 	}
 	return "failed"
 }
@@ -182,6 +261,10 @@ func handleText(fileName string) error {
 	user = scanner.Text()
 	scanner.Scan()
 	password = scanner.Text()
+	scanner.Scan()
+	token = scanner.Text()
+	scanner.Scan()
+	interval, _ = strconv.Atoi(scanner.Text())
 	if err := scanner.Err(); err != nil {
 		log.Printf("Cannot scanner text file: %s, err: [%v]", fileName, err)
 		return err
